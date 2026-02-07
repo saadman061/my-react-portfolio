@@ -1,58 +1,72 @@
-name: Deploy React App to VPS
+name: Deploy to VPS
 
 on:
   push:
     branches:
-      - main
+      - main  # Change to 'master' if that's your branch name
+  workflow_dispatch:  # Allows manual trigger from GitHub Actions tab
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build React app
+      - name: Build project
         run: npm run build
 
+      - name: Create deployment archive
+        run: |
+          cd build
+          tar -czf ../build.tar.gz .
+          cd ..
+
       - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "build.tar.gz"
+          target: "/tmp"
+
+      - name: Extract and configure on VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USEr }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            TIMESTAMP=$(date +%Y%m%d%H%M%S)
-            RELEASE_DIR=/var/www/my-react-portfolio/releases/$TIMESTAMP
-
-            mkdir -p $RELEASE_DIR
-            rm -rf $RELEASE_DIR/*
-
-      - name: Copy build files
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          source: "build/*"
-          target: "/var/www/my-react-portfolio/releases/${{ github.run_id }}/"
-
-      - name: Activate release
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            ln -sfn /var/www/my-react-portfolio/releases/${{ github.run_id }} /var/www/my-react-portfolio/current
-            sudo nginx -t && sudo systemctl reload nginx
+            # Create backup of current deployment
+            if [ -d "${{ secrets.VPS_DEPLOY_PATH }}" ]; then
+              sudo cp -r ${{ secrets.VPS_DEPLOY_PATH }} ${{ secrets.VPS_DEPLOY_PATH }}_backup_$(date +%Y%m%d_%H%M%S)
+            fi
+            
+            # Create deploy directory if it doesn't exist
+            sudo mkdir -p ${{ secrets.VPS_DEPLOY_PATH }}
+            
+            # Extract new build
+            sudo tar -xzf /tmp/build.tar.gz -C ${{ secrets.VPS_DEPLOY_PATH }}
+            
+            # Set correct permissions
+            sudo chown -R www-data:www-data ${{ secrets.VPS_DEPLOY_PATH }}
+            sudo chmod -R 755 ${{ secrets.VPS_DEPLOY_PATH }}
+            
+            # Cleanup
+            rm /tmp/build.tar.gz
+            
+            # Restart Nginx
+            sudo systemctl reload nginx
+            
+            echo "Deployment completed successfully!"
