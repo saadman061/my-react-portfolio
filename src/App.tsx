@@ -471,7 +471,7 @@ const Portfolio = () => {
           </p>
           
           <div className="flex justify-center gap-6 mb-12">
-            <a href="https://github.com/saadman" target="_blank" rel="noopener noreferrer" 
+            <a href="https://github.com/saadman061" target="_blank" rel="noopener noreferrer" 
                className="p-4 bg-slate-800 rounded-full hover:bg-slate-700 transition-all hover:scale-110">
               <Github size={24} />
             </a>
@@ -479,7 +479,7 @@ const Portfolio = () => {
                className="p-4 bg-slate-800 rounded-full hover:bg-slate-700 transition-all hover:scale-110">
               <Linkedin size={24} />
             </a>
-            <a href="mailto:contact@saadman.dev"
+            <a href="mailto:saadmankr@gmail.com"
                className="p-4 bg-slate-800 rounded-full hover:bg-slate-700 transition-all hover:scale-110">
               <Mail size={24} />
             </a>
